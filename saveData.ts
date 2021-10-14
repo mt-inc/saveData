@@ -182,15 +182,17 @@ class saveData {
     let t = this.client.ws.futuresAggTrades(this.usablePair, cbWs);
     this.watchdog = setInterval(() => {
       const now = new Date().getTime();
+      let reason = '';
       let rec = false;
       Object.keys(this.lastData).map((pair) => {
         const time = pair.indexOf('BUSD') !== -1 ? 30 * 1000 : 10 * 1000;
         if (this.lastData[pair] > 0 && now - this.lastData[pair] > time) {
+          reason = `${reason},${pair} (${now - this.lastData[pair]}ms)`;
           rec = true;
         }
       });
       if (rec) {
-        console.log('reconnecting');
+        console.log(`${new Date()} reconnecting ${reason}`);
         t();
         Object.keys(this.lastData).map((pair) => {
           this.lastData[pair] = 0;
