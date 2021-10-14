@@ -1,5 +1,5 @@
 import fs from 'fs';
-import Binance from 'binance-api-node';
+import Binance, { AggregatedTrade } from 'binance-api-node';
 import { Server } from 'socket.io';
 import settings from './settings.json';
 import { Time, constants } from '@mt-inc/utils';
@@ -23,6 +23,8 @@ class saveData {
   private io: Server;
   private timer: NodeJS.Timer | null;
   private streams: { [x in Pairs]: fs.WriteStream | null };
+  private lastData: { [x in Pairs]: number };
+  private watchdog: NodeJS.Timer | null;
   constructor() {
     this.client = Binance();
     this.usablePair = [
@@ -96,6 +98,20 @@ class saveData {
       SOLUSDT: 0,
       XRPUSDT: 0,
     };
+    this.lastData = {
+      BTCUSDT: 0,
+      BNBUSDT: 0,
+      ETHUSDT: 0,
+      ADAUSDT: 0,
+      DOGEUSDT: 0,
+      DOTUSDT: 0,
+      BTCBUSD: 0,
+      BNBBUSD: 0,
+      ETHBUSD: 0,
+      DOGEBUSD: 0,
+      SOLUSDT: 0,
+      XRPUSDT: 0,
+    };
     this.io = new Server();
     this.io.listen(settings.ioport);
     this.timer = null;
@@ -113,6 +129,7 @@ class saveData {
       SOLUSDT: null,
       XRPUSDT: null,
     };
+    this.watchdog = null;
   }
   start() {
     console.log(`${new Time().format(new Date().getTime())}: starting`);
@@ -136,7 +153,7 @@ class saveData {
         });
       });
     console.log(`${new Time().format(new Date().getTime())}: directory prepared`);
-    this.client.ws.futuresAggTrades(this.usablePair, (trade) => {
+    const cbWs = (trade: AggregatedTrade) => {
       const pair = trade.symbol as Pairs;
       const basefile = this.basefilenames[pair];
       let suffix = this.filenames[pair];
@@ -155,12 +172,35 @@ class saveData {
           }
         });
       }
+      this.lastData[pair] = trade.timestamp;
       const data = [trade.price, trade.quantity, trade.timestamp];
       this.streams[pair]?.write(`${data.join(',')}\n`);
       this.count[pair]++;
       this.totalCount[pair]++;
       this.io.emit(pair, trade);
-    });
+    };
+    let t = this.client.ws.futuresAggTrades(this.usablePair, cbWs);
+    this.watchdog = setInterval(() => {
+      const now = new Date().getTime();
+      let rec = false;
+      Object.keys(this.lastData).map((pair) => {
+        const time = pair.indexOf('BUSD') !== -1 ? 30 * 1000 : 10 * 1000;
+        if (this.lastData[pair] > 0 && now - this.lastData[pair] > time) {
+          rec = true;
+        }
+      });
+      if (rec) {
+        console.log('reconnecting');
+        t();
+        Object.keys(this.lastData).map((pair) => {
+          this.lastData[pair] = 0;
+        });
+        Object.keys(this.count).map((pair) => {
+          this.count[pair] = 200001;
+        });
+        t = this.client.ws.futuresAggTrades(this.usablePair, cbWs);
+      }
+    }, 10 * 1000);
     this.timer = setInterval(() => {
       const d = Object.keys(this.totalCount)
         .map((item) => `${item}: ${this.totalCount[item]}`)
@@ -172,6 +212,10 @@ class saveData {
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
+    }
+    if (this.watchdog) {
+      clearInterval(this.watchdog);
+      this.watchdog = null;
     }
     Object.keys(this.streams).map((pair) => {
       if (this.streams[pair]) {
