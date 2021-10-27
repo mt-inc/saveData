@@ -112,30 +112,32 @@ class saveData {
     console.log(`${new Time().format(new Date().getTime())}: directory prepared`);
     const cbWs = (trade: AggregatedTrade) => {
       const pair = trade.symbol as Pairs;
-      const basefile = this.mainData.basefilenames[pair];
-      let suffix = this.mainData.filenames[pair];
-      if (this.mainData.count[pair] > this.filelength) {
-        this.mainData.writeStreams[pair]?.close();
-        this.mainData.count[pair] = 0;
-        this.mainData.writeStreams[pair] = null;
-        this.mainData.filenames[pair] = `${new Date().getTime()}.csv`;
-        suffix = this.mainData.filenames[pair];
+      if (this.usablePair.includes(pair)) {
+        const basefile = this.mainData.basefilenames[pair];
+        let suffix = this.mainData.filenames[pair];
+        if (this.mainData.count[pair] > this.filelength) {
+          this.mainData.writeStreams[pair]?.close();
+          this.mainData.count[pair] = 0;
+          this.mainData.writeStreams[pair] = null;
+          this.mainData.filenames[pair] = `${new Date().getTime()}.csv`;
+          suffix = this.mainData.filenames[pair];
+        }
+        if (!this.mainData.writeStreams[pair]) {
+          this.mainData.writeStreams[pair] = fs.createWriteStream(`${basefile}${suffix}`);
+          this.mainData.writeStreams[pair]?.on('error', (err) => {
+            if (err) {
+              console.log(err);
+            }
+          });
+        }
+        this.mainData.isRestart[pair] = false;
+        this.mainData.lastData[pair] = trade.timestamp;
+        const data = [trade.price, trade.quantity, trade.timestamp];
+        this.mainData.writeStreams[pair]?.write(`${data.join(',')}\n`);
+        this.mainData.count[pair]++;
+        this.mainData.totalCount[pair]++;
+        this.io.emit(pair, trade);
       }
-      if (!this.mainData.writeStreams[pair]) {
-        this.mainData.writeStreams[pair] = fs.createWriteStream(`${basefile}${suffix}`);
-        this.mainData.writeStreams[pair]?.on('error', (err) => {
-          if (err) {
-            console.log(err);
-          }
-        });
-      }
-      this.mainData.isRestart[pair] = false;
-      this.mainData.lastData[pair] = trade.timestamp;
-      const data = [trade.price, trade.quantity, trade.timestamp];
-      this.mainData.writeStreams[pair]?.write(`${data.join(',')}\n`);
-      this.mainData.count[pair]++;
-      this.mainData.totalCount[pair]++;
-      this.io.emit(pair, trade);
     };
     this.usablePair.map((pair) => {
       this.mainData.ws[pair] = this.client.ws.futuresAggTrades(pair, cbWs);
