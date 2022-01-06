@@ -45,6 +45,7 @@ class saveData {
       'DOGEBUSD',
       'SOLUSDT',
       'XRPUSDT',
+      '1000SHIBUSDT',
     ];
 
     this.mainData = {
