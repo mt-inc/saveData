@@ -1,6 +1,6 @@
 {
   "name": "@mt-inc/savedata",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Data saving module for MT Inc. Project",
   "author": "Maksym Shamko",
   "license": "MIT",
@@ -22,9 +22,10 @@
     "typescript": "^4.4.2"
   },
   "dependencies": {
-    "@mt-inc/utils": "^1.0.3",
+    "@mt-inc/utils": "^1.0.4",
     "binance-api-node": "^0.11.21",
     "pm2": "^5.1.2",
     "socket.io": "^4.2.0"
-  }
+  },
+  "packageManager": "yarn@3.1.1"
 }
