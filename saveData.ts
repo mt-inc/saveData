@@ -46,6 +46,11 @@ class saveData {
       'SOLUSDT',
       'XRPUSDT',
       '1000SHIBUSDT',
+      'LINKUSDT',
+      'ATOMUSDT',
+      'FTMUSDT',
+      'NEARUSDT',
+      'LUNAUSDT',
     ];
 
     this.mainData = {
